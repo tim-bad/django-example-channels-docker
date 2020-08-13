@@ -1,0 +1,5 @@
+Django>=2.0,<3.0
+channels==2.2 
+psycopg2-binary>=2.8
+channels_redis
+
