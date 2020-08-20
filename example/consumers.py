@@ -1,33 +1,67 @@
 # This example uses WebSocket consumer, which is synchronous, and so
 # needs the async channel layer functions to be converted.
-from channels.generic.websocket import WebsocketConsumer
-from asgiref.sync import async_to_sync
 import json
+from asgiref.sync import async_to_sync
+from channels.generic.websocket import WebsocketConsumer
 
-class ChatConsumer(WebsocketConsumer):
+class ChatConsumer(WebsocketConsumer): 
 
-    def connect(self):
+    def connect(self): 
+
+        self.room_group_name = 'chat_users' 
+
+        async_to_sync(self.channel_layer.group_add)(
+            self.room_group_name, 
+            self.channel_name
+        )
+
         self.accept() 
-        async_to_sync(self.channel_layer.group_add)("users", self.channel_name)
-        self.user = self.scope["user"]
-        print("User "+self.user)
-        async_to_sync(self.channel_layer.group_send)({
-                'text': json.dumps({
-                    'username': self.user.username,
-                    'is_logged_in': True
-                    }),
-                })
 
-        def disconnect(self, close_code): 
-            async_to_sync(self.channel_layer.group_discard)("users", self.channel_name)
-            async_to_sync(self.channel_layer.group_send)({
-                'text': json.dumps({
-                    'username': self.user.username,
-                    'is_logged_in': True
-                    }),
-                })
+         # Send message to room group
+        async_to_sync(self.channel_layer.group_send)(
+            self.room_group_name,
+            {
+                'type': 'chat_message',
+                'username': self.scope['user'].username,
+                'is_logged_in': True 
+            }
+        )
+
+
+
+
+
+
+    def disconnect(self, close_code): 
+        # Send message to room group
+
+        async_to_sync(self.channel_layer.group_send)(
+            self.room_group_name,
+            {
+                'type': 'chat_message',
+                'username': self.scope['user'].username,
+                'is_logged_in': False 
+            }
+        )
+
+
+        async_to_sync(self.channel_layer.group_discard)(self.room_group_name, self.channel_name) 
+       
+
+  
+
+
+    # Receive message from room group
+    def chat_message(self, event):
+
+
+        # Send message to WebSocket
+        self.send(text_data=json.dumps({
+                    'username': event['username'],
+                    'is_logged_in': event['is_logged_in']
+                    }))
+
            
-            self.close()
 
 
 
